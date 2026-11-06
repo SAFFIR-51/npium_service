@@ -14,7 +14,7 @@ export const ROLE_INFO: Record<Role, { label: string; home: string; text: string
   guest: { label: "일반 이용자", home: "/", text: "로그인 전 서비스 둘러보기" },
   patient: { label: "환자·보호자", home: "/my", text: "일정과 관리 기록 확인" },
   provider: { label: "프로그램 제공자", home: "/expert", text: "신청 수락과 회차 기록" },
-  center: { label: "센터", home: "/center", text: "회원·치료사·예약·결제 관리 (센터 의사)" },
+  center: { label: "병원·기관", home: "/center", text: "센터 관리자 화면 · 회원·의사 확인·프로그램·결제" },
   hospital: { label: "병원·기관", home: "/hospital", text: "연계·승인·보고 확인" },
   admin: { label: "운영 관리자", home: "/admin", text: "수수료·진행 현황·문의 관리" },
 };

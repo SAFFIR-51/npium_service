@@ -300,8 +300,8 @@ a.ca-kpi:hover { border-color: var(--ca-primary-line); box-shadow: 0 4px 14px rg
 }
 
 /* 센터 화면에서는 사이트 공통 헤더·하단 메뉴·푸터를 숨깁니다. */
-body:has(.ca) .reference-header, body:has(.ca) .brand-masthead, body:has(.ca) .bottom-nav, body:has(.ca) > footer, body:has(.ca) .footer { display: none !important; }
-body:has(.ca) > main { padding: 0 !important; margin: 0 !important; max-width: none !important; }
+body:has(.ca:not([style*="display: none"])) .reference-header, body:has(.ca:not([style*="display: none"])) .brand-masthead, body:has(.ca:not([style*="display: none"])) .bottom-nav, body:has(.ca:not([style*="display: none"])) > footer, body:has(.ca:not([style*="display: none"])) .footer { display: none !important; }
+body:has(.ca:not([style*="display: none"])) > main { padding: 0 !important; margin: 0 !important; max-width: none !important; }
 
 /* 데스크톱 좌측 메뉴는 현재 묶음만 보입니다(서랍 메뉴에서는 전부). */
 @media (min-width: 1024px) { .ca-other-group { display: none; } }

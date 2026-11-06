@@ -14,12 +14,12 @@ import "./business-workspace.css";
 export type RoleMenuItem = { href: string; label: string; icon: IconName; count?: number };
 export type RolePerson = { name: string; sub: string; icon: IconName };
 
-/** 역할 변경(체험용). 역할을 바꾼 뒤 홈으로 이동합니다. 각 역할 화면은 헤더의 마이페이지로 들어갑니다. */
+/** 역할 변경(체험용). 병원·기관(센터)은 바로 센터 관리자 화면으로, 나머지는 홈으로 이동합니다. */
 export function useSwitchRole() {
   const router = useRouter();
   return (role: Role) => {
     setDemoRole(role);
-    router.push("/");
+    router.push(role === "center" ? ROLE_INFO.center.home : "/");
   };
 }
 
