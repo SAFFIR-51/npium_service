@@ -5,7 +5,7 @@ import { emptyState } from "../repo/empty";
 const deny = () => { throw new Error("이 작업에 대한 접근 권한이 없습니다."); };
 export function canReadPatient(s: CareState, a: Account, p: Patient) {
   if (a.role === "admin") return true;
-  if (a.role === "hospital") return p.hospital === a.organization;
+  if (a.role === "hospital" || a.role === "center") return p.hospital === a.organization;
   if (a.role === "patient") return p.guardianAccountId === a.id;
   return p.providerId === a.providerId || s.assignments.find(x => x.patientId === p.id)?.providerId === a.providerId && ["제안", "수락"].includes(s.assignments.find(x => x.patientId === p.id)!.status) || s.records.some(r => r.patientId === p.id && r.authorId === a.providerId);
 }
@@ -22,17 +22,18 @@ export function scopedState(s: CareState, a: Account): CareState {
   const reports = s.reports.filter(r => ids.has(r.patientId) && clinical(r.patientId) && (a.role === "provider" ? s.patients.some(p => p.id === r.patientId && p.providerId === a.providerId) : r.shared));
   const records = a.role === "hospital" ? [...new Map([...reports].sort((a,b) => (a.version ?? 1) - (b.version ?? 1)).flatMap(r => r.snapshot?.records ?? []).map(r => [r.id, r])).values()] : s.records.filter(r => ids.has(r.patientId) && (a.role === "provider" ? s.patients.some(p => p.id === r.patientId && p.providerId === a.providerId) || r.authorId === a.providerId : r.confirmed));
   const assessments = a.role === "hospital" ? [...new Map([...reports].sort((a,b) => (a.version ?? 1) - (b.version ?? 1)).flatMap(r => r.snapshot?.assessments ?? []).map(r => [r.id, r])).values()] : s.assessments.filter(r => ids.has(r.patientId));
-  return { ...emptyState, patients, records, assessments, reports, registeredProviders: s.registeredProviders, assignments: s.assignments.filter(r => ids.has(r.patientId) && (a.role !== "provider" || r.providerId === a.providerId)), scheduleRequests: s.scheduleRequests.filter(r => ids.has(r.patientId)), linkages: a.role === "hospital" ? s.linkages.filter(r => ids.has(r.patientId)) : [], messages: s.messages.filter(m => canThread(s, a, m.threadId)), reevaluations: s.reevaluations.filter(r => ids.has(r.patientId) && clinical(r.patientId)), prescriptionDrafts: a.role === "hospital" ? s.prescriptionDrafts.filter(r => ids.has(r.patientId)) : [], prescriptionVersions: s.prescriptionVersions.filter(r => ids.has(r.patientId) && clinical(r.patientId)), prescriptionAcknowledgments: s.prescriptionAcknowledgments.filter(r => ids.has(r.patientId)), satisfactions: s.satisfactions.filter(r => ids.has(r.patientId) && (a.role !== "provider" || r.providerId === a.providerId)) };
+  return { ...emptyState, patients, records, assessments, reports, registeredProviders: s.registeredProviders, assignments: s.assignments.filter(r => ids.has(r.patientId) && (a.role !== "provider" || r.providerId === a.providerId)), scheduleRequests: s.scheduleRequests.filter(r => ids.has(r.patientId)), linkages: a.role === "hospital" ? s.linkages.filter(r => ids.has(r.patientId)) : [], messages: s.messages.filter(m => canThread(s, a, m.threadId)), reevaluations: s.reevaluations.filter(r => ids.has(r.patientId) && clinical(r.patientId)), prescriptionDrafts: a.role === "hospital" ? s.prescriptionDrafts.filter(r => ids.has(r.patientId)) : [], prescriptionVersions: s.prescriptionVersions.filter(r => ids.has(r.patientId) && clinical(r.patientId)), prescriptionAcknowledgments: s.prescriptionAcknowledgments.filter(r => ids.has(r.patientId)), satisfactions: s.satisfactions.filter(r => ids.has(r.patientId) && (a.role !== "provider" || r.providerId === a.providerId)), programs: s.programs, payments: s.payments.filter(r => ids.has(r.patientId)) };
 }
 const allowed: Record<string, Account["role"][]> = {
   addPatient: ["hospital", "patient", "admin"], changePatient: ["hospital", "patient", "admin"],
   proposeAssignment: ["admin"], finalizeAssignment: ["admin"], cancelAssignment: ["admin"], acceptAssignment: ["provider"], declineAssignment: ["provider"],
-  rejectPlan: ["hospital"], reviewAdverse: ["hospital"], closeProgram: ["hospital"], addLinkage: ["hospital"], completeLinkage: ["hospital"],
+  rejectPlan: ["hospital", "center"], reviewAdverse: ["hospital"], closeProgram: ["hospital"], addLinkage: ["hospital"], completeLinkage: ["hospital"],
   saveRecord: ["provider"], correctRecord: ["provider"], addAssessment: ["provider"], saveReport: ["provider"],
   provideReport: ["admin"], reviseReport: ["admin"], confirmReportVersion: ["hospital"], saveReevaluation: ["hospital"], savePrescriptionDraft: ["hospital"], approvePrescriptionDraft: ["hospital"], acknowledgePrescription: ["provider"],
   setProviderControl: ["admin"], saveQualityReview: ["admin"], saveSatisfaction: ["admin", "patient"], saveHospitalReview: ["admin"], reviewApplication: ["admin"],
   setContract: ["admin"], setBilling: ["admin"], adjustBilling: ["admin"], setInquiry: ["admin"], requestSchedule: ["patient"], respondSchedule: ["provider"], cancelScheduleRequest: ["patient"],
-  sendMessage: ["patient", "provider", "hospital", "admin"], markThreadRead: ["patient", "provider", "hospital", "admin"],
+  sendMessage: ["patient", "provider", "hospital", "center", "admin"], markThreadRead: ["patient", "provider", "hospital", "center", "admin"],
+  applyToProvider: ["patient"], acceptRequest: ["provider"], confirmByDoctor: ["center"], changeProvider: ["center"], saveProgram: ["center"], requestPayment: ["center"], markPaid: ["center", "patient"],
 };
 type Input = Record<string, unknown>;
 function object(v: unknown): Input { if (!v || typeof v !== "object" || Array.isArray(v)) return deny(); return v as Input; }
@@ -44,6 +45,17 @@ export function authorize(s: CareState, a: Account, command: string, raw: unknow
   const patient = (id: unknown, assigned = true) => { const p = s.patients.find(p => p.id === id); if (!p || !canReadPatient(s, a, p) || a.role === "provider" && assigned && p.providerId !== a.providerId) return deny(); return p; };
   const reportPatient = (id: unknown) => { const r = s.reports.find(r => r.id === id); if (!r) return deny(); const p = patient(r.patientId); if (a.role === "hospital" && (!p.consent || !r.shared)) deny(); return p; };
   switch (command) {
+    case "applyToProvider": {
+      const input = pick(args[0], ["name", "age", "sex", "condition", "area", "goal", "precautions", "nextDate", "nextTime", "applicant", "homeAddress", "homeAccess", "consent"]);
+      if (typeof args[1] !== "string" || typeof args[2] !== "string" || !Number.isFinite(input.age)) deny();
+      args[0] = { ...input, applicant: signer, guardianAccountId: a.id }; break;
+    }
+    case "acceptRequest": { patient(args[0], false); const latest = s.assignments.find(x => x.patientId === args[0]); if (latest?.providerId !== a.providerId) deny(); args[1] = provider; break; }
+    case "confirmByDoctor": { patient(args[0]); args[1] = { ...pick(args[1], ["opinion", "contraindications", "cautions"]), doctor: signer }; break; }
+    case "changeProvider": { patient(args[0]); const candidate = s.registeredProviders.find(p => p.id === object(args[1]).id); if (!candidate) deny(); args[1] = { id: candidate!.id, name: candidate!.name }; args[3] = signer; break; }
+    case "saveProgram": { const i = pick(args[0], ["id", "providerId", "title", "method", "placeId", "minutes", "payment", "price", "packSessions", "packPrice", "active", "note"]); const old = s.programs.find(x => x.id === i.id); if (old && old.center !== a.organization || !s.registeredProviders.some(p => p.id === i.providerId) || !["방문", "센터", "외부"].includes(String(i.method)) || !["회차별", "이용권"].includes(String(i.payment))) deny(); args[0] = { ...i, id: typeof i.id === "string" ? i.id : "", center: a.organization, active: i.active !== false }; break; }
+    case "requestPayment": { patient(args[0]); const pg = s.programs.find(x => x.id === args[1]); if (!pg || pg.center !== a.organization) deny(); args[3] = signer; break; }
+    case "markPaid": { const x = s.payments.find(x => x.id === args[0]); if (!x) deny(); patient(x!.patientId, false); args[1] = typeof args[1] === "string" && args[1].trim() ? args[1].slice(0, 40) : deny(); break; }
     case "addPatient": {
       const input = pick(args[0], ["id", "name", "age", "sex", "condition", "area", "hospital", "goal", "precautions", "total", "nextDate", "nextTime", "method", "consent", "homeAddress", "homeAccess", "place", "applicant", "guardianAccountId"]);
       if (typeof input.id !== "string" || s.patients.some(p => p.id === input.id) || typeof input.name !== "string" || !input.name.trim() || typeof input.hospital !== "string" || !input.hospital.trim() || !Number.isFinite(input.age) || !Number.isFinite(input.total)) deny();

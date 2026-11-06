@@ -46,6 +46,74 @@ export type Patient = {
   nextPlace?: Place;
   /** 프로그램 종료 확인 (병원) */
   closure?: { at: string; by: string; summary: string };
+  /** 신청한 센터 프로그램 (src/lib/center.ts) */
+  programId?: string;
+  /** 첫 회차 전 센터 의사 확인. 확인 전에는 예약이 확정되지 않습니다. */
+  doctorCheck?: DoctorCheck;
+};
+
+/** 센터 의사의 확인·지도 기록. 치료사는 이 범위 안에서 진행합니다. */
+export type DoctorCheck = {
+  doctor: string;
+  at: string;
+  opinion: string;
+  contraindications: string[];
+  cautions: string[];
+};
+
+/** 센터가 여는 프로그램. 치료사 한 명이 맡고, 결제 방식은 프로그램마다 고릅니다. */
+export type Program = {
+  id: string;
+  /** 센터 이름 (Patient.hospital과 같은 값) */
+  center: string;
+  providerId: string;
+  title: string;
+  /** 자택 방문 / 센터 수업 / 다른 장소(제휴 공간) */
+  method: "방문" | "센터" | "외부";
+  /** 다른 장소일 때 제휴 공간 id (src/lib/places.ts CENTERS) */
+  placeId?: string;
+  minutes: number;
+  payment: "회차별" | "이용권";
+  /** 회차별 금액 */
+  price: number;
+  /** 이용권 회차 수와 금액 */
+  packSessions?: number;
+  packPrice?: number;
+  active: boolean;
+  note?: string;
+};
+
+/** 결제. 실제 결제 연동 전이라 결제 완료는 센터·이용자가 표시합니다. */
+export type Payment = {
+  id: string;
+  patientId: string;
+  programId: string;
+  kind: "회차" | "이용권";
+  sessions: number;
+  amount: number;
+  status: "결제 대기" | "결제 완료" | "취소";
+  createdAt: string;
+  paidAt?: string;
+  method?: string;
+  by: string;
+};
+
+/** 이용자가 치료사에게 직접 신청할 때 받는 정보 */
+export type ApplyInput = {
+  name: string;
+  age: number;
+  sex: string;
+  condition: string;
+  area: string;
+  goal: string;
+  precautions: string;
+  nextDate: string;
+  nextTime: string;
+  applicant: string;
+  guardianAccountId?: string;
+  homeAddress?: string;
+  homeAccess?: string;
+  consent: boolean;
 };
 
 /** 방문재활 처방. 기간·주간 횟수는 병원에서 설정합니다. */
@@ -285,6 +353,10 @@ export type CareState = {
   qualityReviews: QualityReview[];
   satisfactions: Satisfaction[];
   hospitalReviews: HospitalReview[];
+  /** 센터 프로그램 */
+  programs: Program[];
+  /** 결제 내역 */
+  payments: Payment[];
 };
 
 /** 병원 이용 계약. 회차당 수수료(확정된 방문 회차 × 단가) 또는 월 정액. */
@@ -390,6 +462,21 @@ export interface CareRepository {
   saveHospitalReview(input: Omit<HospitalReview, "id" | "at">): boolean;
   adjustBilling(key: string, amount: number, reason: string, by: string): boolean;
   toggleHomeTask(taskId: string): void;
+
+  // ── 센터 관리 (1차) ──
+  /** 이용자가 치료사의 프로그램에 신청합니다. 반환값은 새 이용자 id. */
+  applyToProvider(input: ApplyInput, providerId: string, programId: string): string;
+  /** 치료사가 신청을 수락하면 담당이 되고, 센터 의사 확인 단계로 넘어갑니다. */
+  acceptRequest(patientId: string, provider: ProviderRef): boolean;
+  /** 센터 의사가 첫 회차 전에 확인합니다. 확인되면 예약이 확정되고 결제 요청이 만들어집니다. */
+  confirmByDoctor(patientId: string, check: Omit<DoctorCheck, "at">, firstDate: string, firstTime: string): boolean;
+  /** 센터가 담당 치료사를 바꿉니다. */
+  changeProvider(patientId: string, provider: ProviderRef, reason: string, by: string): boolean;
+  saveProgram(program: Program): boolean;
+  /** 결제 요청을 만듭니다 (다음 이용권·회차). */
+  requestPayment(patientId: string, programId: string, kind: Payment["kind"], by: string): string;
+  /** 결제 완료 표시 (현장 결제 또는 이용자 결제) */
+  markPaid(paymentId: string, method: string): boolean;
 
   reset(): void;
   /** 하위 호환용 저수준 갱신. 새 코드는 위 명령을 사용합니다. */

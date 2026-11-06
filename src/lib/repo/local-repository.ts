@@ -3,6 +3,7 @@ import { experts } from "@/lib/data";
 import { seed } from "./seed";
 import { normalizeWorkflow, prescriptionForDate } from "@/lib/workflow";
 import { createRepository } from "./engine";
+import { LEGACY_CENTER_NAMES } from "@/lib/center";
 import { todayLocal } from "../date";
 export { todayLocal } from "../date";
 import type { CareRepository, CareState, Patient } from "./types";
@@ -27,6 +28,8 @@ function migrate(parsed: Partial<CareState>): CareState {
     // 예시 대상은 새로 추가된 필드를 예시 값으로 채웁니다.
     const example = seedById.get(stored.id);
     const p = { ...example, ...stored } as Patient;
+    // 병원·기관 → 센터로 바뀌면서 예전 기관 이름을 센터 이름으로 이어받습니다.
+    if (LEGACY_CENTER_NAMES[p.hospital]) p.hospital = LEGACY_CENTER_NAMES[p.hospital];
     // 예전에 저장된 예시 처방에는 진료과 프로토콜(금기·주의사항)이 없어서 예시 값으로 채웁니다.
     const exRx = example?.prescription;
     if (p.prescription && exRx?.protocolId && !p.prescription.protocolId) {

@@ -11,6 +11,7 @@ export type Place = { kind: PlaceKind; centerId?: string };
 export type Center = { id: string; name: string; area: string; address: string; image: string; tags: string[]; description: string };
 // 체험용 예시 공간 (주소는 가상의 예시)
 export const CENTERS: Center[] = [
+  { id: "saebom", name: "새봄 연합재활센터", area: "서울 송파구", address: "서울 송파구 예시로 10, 3층 (체험용 주소)", image: "/images/studio-v2.jpg", tags: ["센터 수업", "의사 상주", "주차 가능"], description: "센터 의사의 확인을 받아 치료사가 수업을 진행하는 센터입니다." },
   { id: "live", name: "리브 움직임 스튜디오", area: "서울 송파구", address: "서울 송파구 예시로 12, 2층 (체험용 주소)", image: "/images/studio-v2.jpg", tags: ["개인 프로그램", "주차 가능", "엘리베이터"], description: "차분한 환경에서 전문가와 함께 프로그램을 진행하는 공간입니다." },
   { id: "onyu", name: "온유 밸런스 센터", area: "성남 분당구", address: "성남 분당구 예시대로 45, 3층 (체험용 주소)", image: "/images/pilates-v2.jpg", tags: ["그룹 프로그램", "탈의실"], description: "여유로운 공간과 기본 운동 장비를 갖춘 프로그램 공간입니다." },
   { id: "mapo", name: "마포 웰니스 라운지", area: "서울 마포구", address: "서울 마포구 예시길 7, 1층 (체험용 주소)", image: "/images/gym.jpg", tags: ["장비 이용", "엘리베이터"], description: "일상 활동과 기능 관리 프로그램을 위한 공간입니다." },

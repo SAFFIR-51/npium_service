@@ -12,7 +12,7 @@ import { DEMO_MODE, demoProvider, type Role } from "./session";
  */
 const KEY = "npium-demo-role";
 const LEGACY_KEY = "nopium-demo-role";
-const roles: Role[] = ["guest", "patient", "provider", "hospital", "admin"];
+const roles: Role[] = ["guest", "patient", "provider", "center", "hospital", "admin"];
 const listeners = new Set<() => void>();
 
 function read(): Role {
@@ -56,7 +56,9 @@ export function useCurrentProvider() {
   return DEMO_MODE ? demoProvider() : p ? { ...p, hospital: "hospital" in p ? p.hospital : undefined, slots: "slots" in p ? p.slots : "등록된 일정 확인" } : null;
 }
 
-export function useActor() { const account = useAccount(); const role = useRole(); return DEMO_MODE ? { id: role === "provider" ? DEMO_ACCOUNTS.provider.id : role === "hospital" ? DEMO_ACCOUNTS.hospital.id : role === "admin" ? DEMO_ACCOUNTS.admin.id : DEMO_ACCOUNTS.patient.id, name: role === "hospital" ? DEMO_ACCOUNTS.hospital.name : role === "admin" ? DEMO_ACCOUNTS.admin.name : role === "provider" ? demoProvider()?.name ?? "치료사" : DEMO_ACCOUNTS.patient.name, organization: role === "hospital" ? DEMO_ACCOUNTS.hospital.organization : "" } : { id: account?.id ?? "", name: account?.name ?? "", organization: account?.organization ?? "" }; }
+export function useActor() { const account = useAccount(); const role = useRole(); return DEMO_MODE ? { id: role === "provider" ? DEMO_ACCOUNTS.provider.id : role === "center" ? DEMO_ACCOUNTS.center.id : role === "hospital" ? DEMO_ACCOUNTS.hospital.id : role === "admin" ? DEMO_ACCOUNTS.admin.id : DEMO_ACCOUNTS.patient.id, name: role === "center" ? DEMO_ACCOUNTS.center.name : role === "hospital" ? DEMO_ACCOUNTS.hospital.name : role === "admin" ? DEMO_ACCOUNTS.admin.name : role === "provider" ? demoProvider()?.name ?? "치료사" : DEMO_ACCOUNTS.patient.name, organization: role === "center" ? DEMO_ACCOUNTS.center.organization : role === "hospital" ? DEMO_ACCOUNTS.hospital.organization : "" } : { id: account?.id ?? "", name: account?.name ?? "", organization: account?.organization ?? "" }; }
+/** 센터 계정 (센터 직원 = 의사) */
+export function useCenterAccount() { const actor = useActor(); return DEMO_MODE ? DEMO_ACCOUNTS.center : { ...actor, title: "센터 의사" }; }
 export function useHospitalAccount() { const actor = useActor(); return DEMO_MODE ? DEMO_ACCOUNTS.hospital : { ...actor, title: "병원 담당자", doctors: [actor.name], socialWorker: actor.name }; }
 export function usePatientAccount() { const actor = useActor(); return DEMO_MODE ? DEMO_ACCOUNTS.patient : { ...actor, relation: "환자·보호자" }; }
 export { getAccount };

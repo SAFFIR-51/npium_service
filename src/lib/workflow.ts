@@ -5,7 +5,7 @@ import { PROVIDER_CHECKS } from "./repo/types";
 export const copy = <T,>(v: T): T => JSON.parse(JSON.stringify(v));
 export const validDay = (v: string) => /^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(Date.parse(v)) && new Date(`${v}T00:00:00Z`).toISOString().slice(0, 10) === v;
 export function normalizeWorkflow(s: CareState): CareState {
-  return { ...s, reevaluations: s.reevaluations ?? [], prescriptionDrafts: s.prescriptionDrafts ?? [], prescriptionVersions: s.prescriptionVersions ?? [], prescriptionAcknowledgments: s.prescriptionAcknowledgments ?? [], providerControls: s.providerControls ?? {}, registeredProviders: s.registeredProviders ?? [], qualityReviews: s.qualityReviews ?? [], satisfactions: s.satisfactions ?? [], hospitalReviews: s.hospitalReviews ?? [] };
+  return { ...s, reevaluations: s.reevaluations ?? [], prescriptionDrafts: s.prescriptionDrafts ?? [], prescriptionVersions: s.prescriptionVersions ?? [], prescriptionAcknowledgments: s.prescriptionAcknowledgments ?? [], providerControls: s.providerControls ?? {}, registeredProviders: s.registeredProviders ?? [], qualityReviews: s.qualityReviews ?? [], satisfactions: s.satisfactions ?? [], hospitalReviews: s.hospitalReviews ?? [], programs: s.programs ?? [], payments: s.payments ?? [] };
 }
 export const allProviders = (s: CareState) => [...(s.demo === false ? [] : experts), ...(s.registeredProviders ?? []).filter(p => (s.demo === false || !experts.some(e => e.id === p.id)))];
 export function providerEligibility(s: CareState, providerId: string, today: string) {

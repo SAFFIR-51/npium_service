@@ -35,7 +35,6 @@ if (!patient) return <div className="sg my-home my-sub-view"><MySubHeader title=
   const pending = request?.status === "요청" ? request : undefined;
   const portrait = patient.providerId ? expertPortraits[patient.providerId] : undefined;
   const thread = `care-${patient.id}`;
-  const chatHref = (t?: string) => `/chat?c=${thread}${t ? `&t=${encodeURIComponent(t)}` : ""}`;
   const nextLabel = request?.status === "확정" && request.respondedAt ? (request.kind === "변경" ? "변경 확정" : "확인됨") : "방문 예정";
 
   const submit = async () => {
@@ -63,28 +62,28 @@ if (!patient) return <div className="sg my-home my-sub-view"><MySubHeader title=
     <PatientSwitch />
 
     <h2 className="sg-title">다음 방문</h2>
-    {patient.status === "종료" ? <section className="sg-card sg-empty">방문재활이 끝났어요. {patient.closure?.summary} <Link href="/my/requests">종료 소견 보기</Link></section> : started && patient.providerId ? <section className="sg-card">
+    {patient.status === "종료" ? <section className="sg-card sg-empty">방문재활이 끝났어요. {patient.closure?.summary} <Link href="/my">내 관리로</Link></section> : started && patient.providerId ? <section className="sg-card">
       <div className="sg-row static">
         <span><small className="sg-state on">{nextLabel} · {dday(today, patient.nextDate)}</small><b className="sg-big">{md(patient.nextDate)} ({weekday(patient.nextDate)}) {patient.nextTime}</b></span>
       </div>
       <PlaceInfo patient={patient} changed={!!patient.nextPlace} />
       {pending && <p className="sg-change"><Icon name="clock" size={14} />{pending.kind === "변경" ? <>{md(pending.date!)} ({weekday(pending.date!)}) {pending.time}{pending.place ? ` · ${placeName(pending.place)}` : ""}로 변경 요청 · 선생님 확인 중</> : "참여 어려움 알림 · 선생님 확인 중"}<button onClick={async () => await careRepo.cancelScheduleRequest(pending.id)}>요청 취소</button></p>}
-      {request?.status === "조정 필요" && <p className="sg-change warn"><Icon name="chat" size={14} />{request.response || "일정 조정이 필요해요."}<Link href={chatHref("다른 가능한 시간을 알려주세요.")}>채팅으로 정하기</Link></p>}
+      {request?.status === "조정 필요" && <p className="sg-change warn"><Icon name="chat" size={14} />{request.response || "일정 조정이 필요해요."}</p>}
       {request?.status === "확정" && request.response && <p className="sg-change"><Icon name="check" size={14} />{request.response}</p>}
       <div className="sg-divider" />
-      <div className="sg-person">{portrait ? <Image src={portrait} width={28} height={28} alt="" /> : <span className="sg-avatar">{patient.provider.slice(0, 1)}</span>}<span>{patient.provider} 선생님 · 담당</span><Link className="sg-chat" href={chatHref()}><Icon name="chat" size={14} />채팅</Link></div>
+      <div className="sg-person">{portrait ? <Image src={portrait} width={28} height={28} alt="" /> : <span className="sg-avatar">{patient.provider.slice(0, 1)}</span>}<span>{patient.provider} 선생님 · 담당</span></div>
       <div className="sg-actions"><button disabled={!!pending} onClick={() => { setDate(patient.nextDate); setTime(patient.nextTime); setPlace(upcomingPlace(patient)); setModal("change"); }}>일정·장소 변경 요청</button><button disabled={!!pending} onClick={() => setModal("absent")}>참여 어려움 알리기</button></div>
-    </section> : <section className="sg-card sg-empty">담당 선생님이 연결되면 일정이 이곳에 보여요. <Link href="/my/requests">진행 단계 보기</Link></section>}
+    </section> : <section className="sg-card sg-empty">담당 선생님이 연결되면 일정이 이곳에 보여요. <Link href="/my">진행 단계 보기</Link></section>}
 
     {started && patient.status !== "종료" && <><h2 className="sg-title">방문 전 준비</h2>
       <section className="sg-card"><ul className="sg-check">{visitPrep.slice(0, 4).map(v => <li key={v}><Icon name="check" size={14} />{v}</li>)}</ul>
         <button className="sg-more inline" onClick={() => setModal("prep")}>전체 보기</button></section></>}
 
     <h2 className="sg-title">지난 회차 <span>{records.length}</span></h2>
-    {records.length ? <section className="sg-card sg-list">{records.map(r => <Link key={r.id} className="sg-row" href={`/my/records#${r.id}`}>
+    {records.length ? <section className="sg-card sg-list">{records.map(r => <div key={r.id} className="sg-row">
       <span><small className={`sg-state ${r.attendance === "부분 참여" ? "warn" : r.attendance === "미참여" ? "off" : ""}`}>{r.attendance === "미참여" ? "쉼" : r.attendance ?? "참여"}{r.durationMin ? ` · ${r.durationMin}분` : ""}</small><b>{md(r.date)} ({weekday(r.date)}) · {r.sessionNo ? `${r.sessionNo}회차` : r.title}</b></span>
-      <span className="sg-right">보고서<Icon name="chevron" size={14} /></span>
-    </Link>)}</section> : <section className="sg-card sg-empty">아직 진행한 회차가 없어요.</section>}
+      <span className="sg-right" style={{ maxWidth: "45%", textAlign: "right", fontSize: 13 }}>{r.content.slice(0, 40)}{r.content.length > 40 ? "…" : ""}</span>
+    </div>)}</section> : <section className="sg-card sg-empty">아직 진행한 회차가 없어요.</section>}
 
 
 

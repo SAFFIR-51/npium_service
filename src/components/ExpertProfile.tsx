@@ -5,6 +5,9 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 import { Icon } from "@/components/Icon";
 import { type Expert, won } from "@/lib/data";
 import { expertPortraits } from "@/lib/expert-portraits";
+import { useCare } from "@/lib/repo";
+import { centerOfProvider, methodLabel, paymentLabel, programsOf } from "@/lib/center";
+import "./center-ui.css";
 
 const programDescriptions: Record<string, string> = {
   park: "보행과 균형, 집 안에서의 이동처럼 일상에 필요한 움직임을 중심으로 진행합니다. 사용하는 보조도구와 생활 동선을 함께 확인하고, 현재 수행할 수 있는 범위에 맞춰 활동을 조정합니다.",
@@ -37,6 +40,7 @@ export function ExpertProfile({ expert: e }: { expert: Expert }) {
     }
   };
   const [section, setSection] = useState("expert-info");
+  const center = centerOfProvider(e.id), programs = programsOf(useCare(), e.id);
   const href = `/request?expert=${e.id}`;
   const photos = [
     { src: "/images/care-consultation.jpg", caption: "프로그램 상담", alt: "프로그램 상담 참고 사진" },
@@ -72,21 +76,22 @@ export function ExpertProfile({ expert: e }: { expert: Expert }) {
     <div className="expert-gallery" aria-label="프로그램 참고 사진">{photos.map(p => <figure key={p.src}><Image src={p.src} fill sizes="(max-width:700px) 50vw, 220px" alt={p.alt} /><figcaption>{p.caption} · 참고 사진</figcaption></figure>)}</div>
 
     <div className="expert-columns"><div className="expert-main">
-      <p className="expert-notice">신청 전 퇴원 안내와 주의사항, 가능한 일정·장소를 확인해 주세요.</p>
+      <p className="expert-notice">{center.name} 소속 치료사예요. 신청하면 첫 회차 전에 센터 의사가 확인합니다.</p>
       <nav className="expert-section-nav" aria-label="전문가 프로필 항목">{sections.map(s => <a key={s.id} href={`#${s.id}`} aria-current={section === s.id ? "location" : undefined} onClick={() => setSection(s.id)}>{s.title}</a>)}</nav>
 
       <section className="expert-section" id="expert-info">
-        <dl className="expert-facts"><div><dt>활동 지역</dt><dd>{e.area}</dd></div><div><dt>가능 시간</dt><dd>{e.slots}</dd></div><div><dt>진행 방식</dt><dd>{e.visit.join(" · ")}</dd></div></dl>
+        <dl className="expert-facts"><div><dt>소속 센터</dt><dd>{center.name}</dd></div><div><dt>활동 지역</dt><dd>{e.area}</dd></div><div><dt>가능 시간</dt><dd>{e.slots}</dd></div><div><dt>진행 방식</dt><dd>{e.visit.join(" · ")}</dd></div></dl>
         <h2>서비스 상세설명</h2><p>{e.intro}</p><p>{programDescriptions[e.id]}</p>
         <h2 className="expert-subsection-title">제공 프로그램</h2><div className="expert-service-tags">{e.focus.map(t => <span key={t}>{t}</span>)}</div>
-        <div className="expert-career"><h2>경력·자격</h2><h3>총 경력 {e.years}년</h3><p>{e.license} · {e.focus.join(" / ")}</p>{e.hospital && <p className="expert-career-institution">연계 기관 · {e.hospital}</p>}<p className="expert-caption">경력·자격·기관은 화면 구성을 위한 예시 정보입니다.</p></div>
+        <div className="expert-career"><h2>경력·자격</h2><h3>총 경력 {e.years}년</h3><p>{e.license} · {e.focus.join(" / ")}</p><p className="expert-career-institution">소속 센터 · {center.name} ({center.kind})</p><p className="expert-caption">경력·자격·기관은 화면 구성을 위한 예시 정보입니다.</p></div>
       </section>
 
       <section className="expert-section" id="expert-programs"><h2>프로그램 안내</h2>
         <p>프로그램을 시작하기 전에 현재 상태와 퇴원 시 안내받은 주의사항, 생활 환경을 함께 확인합니다. 이용자가 원하는 목표와 가능한 장소·일정을 바탕으로 진행 내용을 정합니다.</p>
         <p>{programDescriptions[e.id]}</p>
         <p>진행한 활동과 수행 반응은 회차별로 기록합니다. 이전 기록을 살펴보며 다음 회차의 계획을 조정하고, 보호자와 함께 확인할 내용도 정리합니다.</p>
-        <div className="expert-price-row"><span>회차별 예시 비용</span><b>{won(e.price)}<small> / 회</small></b></div><p className="expert-caption">실제 진행 범위, 일정과 비용은 신청 내용 확인 후 정해집니다.</p>
+        <div className="cx-programs">{programs.length ? programs.map(pg => <div className="cx-program" key={pg.id}><div><b>{pg.title}</b><small>{pg.method === "센터" ? `센터 수업 · ${center.name}` : methodLabel(pg)} · {pg.minutes}분 · {paymentLabel(pg)}</small></div><div style={{ textAlign: "right" }}><div className="cx-price">{pg.payment === "이용권" && pg.packPrice ? won(pg.packPrice) : `${won(pg.price)} / 회`}</div><a className="cx-btn small primary" style={{ marginTop: 6 }} href={`/request?expert=${e.id}&program=${pg.id}`}>신청</a></div></div>) : <p className="expert-caption">지금 신청할 수 있는 프로그램이 없어요.</p>}</div>
+        <p className="expert-caption">신청하면 치료사가 수락한 뒤, 첫 회차 전에 {center.name} 의사가 상태와 주의사항을 확인합니다. 금액은 체험용 예시입니다.</p>
       </section>
 
       <section className="expert-section" id="expert-photos"><h2>사진</h2><div className="expert-photo-grid">{photos.map(p => <figure key={p.src}><div><Image src={p.src} fill sizes="(max-width:700px) 30vw, 220px" alt={p.alt} /></div><figcaption>{p.caption}</figcaption></figure>)}</div><p className="expert-caption">프로그램을 설명하기 위한 참고 사진입니다.</p></section>

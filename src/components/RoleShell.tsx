@@ -67,9 +67,9 @@ export function RoleShell({ area, person, menu, children, layout = "sidebar" }: 
   }
   // 사전 렌더링 중에는 역할을 알 수 없습니다. 페이지 세그먼트는 렌더링하되(즉시 이동 검증용) 화면에는 숨깁니다.
   // 업무 역할(전문가·병원·운영)도 "내 관리" 한 곳에서 관리합니다. 가운데 970px, 위쪽 탭 메뉴(숨고식).
-  const shell = (body: ReactNode, tabs?: ReactNode) => <div className={`workspace role-workspace role-tabs manage role-${area} ${area === "hospital" || area === "admin" ? "business-work" : ""}`}><div className="workspace-content">
+  const shell = (body: ReactNode, tabs?: ReactNode) => <div className={`workspace role-workspace role-tabs manage role-${area} ${area === "hospital" || area === "admin" || area === "center" ? "business-work" : ""}`}><div className="workspace-content">
     <div className="manage-band">
-      <div className="work-head">{area !== "hospital" && area !== "admin" && <span className="work-avatar"><Icon name={person.icon} size={22} /></span>}<div>{area !== "hospital" && <p className="work-title">내 관리</p>}<p className="work-person">{person.name}{person.sub && <small>{person.sub}</small>}{person.sub !== ROLE_INFO[area].label && <em className="work-role">{ROLE_INFO[area].label}</em>}</p></div></div>
+      <div className="work-head">{area !== "hospital" && area !== "admin" && area !== "center" && <span className="work-avatar"><Icon name={person.icon} size={22} /></span>}<div>{area !== "hospital" && area !== "center" && <p className="work-title">내 관리</p>}<p className="work-person">{person.name}{person.sub && <small>{person.sub}</small>}{person.sub !== ROLE_INFO[area].label && <em className="work-role">{ROLE_INFO[area].label}</em>}</p></div></div>
       {tabs}
     </div>
     {body}

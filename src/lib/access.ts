@@ -14,6 +14,8 @@ export function visiblePatients(state: CareState, role: Role | null): Patient[] 
   switch (role) {
     case "patient":
       return state.patients.filter(p => p.guardianAccountId === DEMO_ACCOUNTS.patient.id);
+    case "center":
+      return state.patients.filter(p => p.hospital === DEMO_ACCOUNTS.center.organization);
     case "hospital":
       return state.patients.filter(p => p.hospital === DEMO_ACCOUNTS.hospital.organization);
     case "admin":

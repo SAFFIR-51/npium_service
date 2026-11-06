@@ -7,6 +7,7 @@ import { type ReactNode } from "react";
 import { Icon } from "@/components/Icon";
 import { RoleShell } from "@/components/RoleShell";
 import { selectPatient, usePatientCare } from "./use-patient-care";
+import { flowStep } from "@/lib/center";
 import "./my-page.css";
 
 export function PatientShell({ children }: { children: ReactNode }) {
@@ -26,8 +27,8 @@ export function MySubHeader({ title, subtitle, action }: { title: string; subtit
 
 /** 같은 화면에서 관리 대상을 선택하고 바로 닫는 팝업입니다. */
 export function PatientSwitch() {
-  const { patients, patient } = usePatientCare();
+  const { state, patients, patient } = usePatientCare();
   const [open, setOpen] = useState(false);
   if (!patient) return null;
-  return <div className="my-picker"><button type="button" className="my-picker-btn" aria-label="관리 대상 선택" disabled={patients.length < 2} onClick={() => setOpen(true)}><span className="my-picker-text"><b>{patient.name} 님</b><small>{patient.condition}</small></span><span className="care-status">{patient.status}</span>{patients.length > 1 && <Icon name="down" size={16} />}</button>{open && <Modal title="관리 대상 선택" onClose={() => setOpen(false)}><div className="patient-choice-list">{patients.map(p => <button key={p.id} type="button" aria-pressed={p.id === patient.id} onClick={() => { selectPatient(p.id); setOpen(false); }}><span><b>{p.name} 님</b><small>{p.condition} · {p.status}</small></span>{p.id === patient.id && <Icon name="check" size={18} />}</button>)}</div></Modal>}</div>;
+  return <div className="my-picker"><button type="button" className="my-picker-btn" aria-label="관리 대상 선택" disabled={patients.length < 2} onClick={() => setOpen(true)}><span className="my-picker-text"><b>{patient.name} 님</b><small>{patient.condition}</small></span><span className="care-status">{flowStep(state, patient)}</span>{patients.length > 1 && <Icon name="down" size={16} />}</button>{open && <Modal title="관리 대상 선택" onClose={() => setOpen(false)}><div className="patient-choice-list">{patients.map(p => <button key={p.id} type="button" aria-pressed={p.id === patient.id} onClick={() => { selectPatient(p.id); setOpen(false); }}><span><b>{p.name} 님</b><small>{p.condition} · {flowStep(state, p)}</small></span>{p.id === patient.id && <Icon name="check" size={18} />}</button>)}</div></Modal>}</div>;
 }

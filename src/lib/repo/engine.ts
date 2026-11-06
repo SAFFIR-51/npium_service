@@ -3,6 +3,7 @@ import { seed } from "./seed";
 import { todayLocal } from "../date";
 import { captureBilling } from "@/lib/billing";
 import { allProviders, approvedVersion, latestReport, normalizeWorkflow, prescriptionForDate, providerEligibility, prescriptionSignature, reportReviewSignature, publishReport, reportSnapshot, transitionWorkflow } from "@/lib/workflow";
+import { paymentFor, programById, programFor, programPlace } from "@/lib/center";
 import type { CareRecord, CareRepository, CareState, Patient } from "./types";
 const nowIso = () => new Date().toISOString();
 const newId = (prefix: string) => `${prefix}-${crypto.randomUUID()}`;
@@ -371,6 +372,120 @@ return { getSnapshot: read, getServerSnapshot: serverSnapshot, subscribe,
       ...s,
       homeTasks: s.homeTasks.includes(taskId) ? s.homeTasks.filter(t => t !== taskId) : [...s.homeTasks, taskId],
     })),
+
+  applyToProvider(input, providerId, programId) {
+    let id = "";
+    write(s => {
+      const program = programById(s, programId), provider = allProviders(s).find(e => e.id === providerId);
+      if (!program?.active || program.providerId !== providerId || !provider || !input.name.trim() || !input.condition.trim() || !input.nextDate || !input.nextTime || !input.consent) return s;
+      id = newId("p");
+      const at = nowIso();
+      const patient: Patient = {
+        ...input, id, name: input.name.trim(), condition: input.condition.trim(),
+        hospital: program.center, provider: "", status: "배정 대기", completed: 0,
+        total: program.packSessions ?? 8, method: program.method === "방문" ? "방문" : "센터", programId: program.id,
+        place: programPlace(program),
+        requestedProviderId: provider.id, requestedProviderName: provider.name,
+      };
+      return { ...s, patients: [patient, ...s.patients], assignments: [{ id: newId("as"), patientId: id, providerId: provider.id, providerName: provider.name, status: "제안", createdAt: at, adjustmentReason: "이용자 신청", by: input.applicant }, ...s.assignments] };
+    });
+    return id;
+  },
+
+  acceptRequest(patientId, provider) {
+    let applied = false;
+    write(s => {
+      const p = s.patients.find(x => x.id === patientId), latest = s.assignments.find(a => a.patientId === patientId);
+      if (!p || p.status !== "배정 대기" || latest?.status !== "제안" || latest.providerId !== provider.id) return s;
+      const at = nowIso(), proposalId = latest.proposalId ?? latest.id;
+      applied = true;
+      return {
+        ...patchPatient(s, patientId, { providerId: provider.id, provider: provider.name, requestedProviderId: undefined, requestedProviderName: undefined, status: "승인 대기" }),
+        assignments: [
+          { ...latest, id: newId("as"), proposalId, status: "확정", createdAt: at, respondedAt: at, by: provider.name },
+          { ...latest, id: newId("as"), proposalId, status: "수락", createdAt: at, respondedAt: at, by: provider.name },
+          ...s.assignments,
+        ],
+      };
+    });
+    return applied;
+  },
+
+  confirmByDoctor(patientId, check, firstDate, firstTime) {
+    let applied = false;
+    write(s => {
+      const p = s.patients.find(x => x.id === patientId);
+      if (!p || p.status !== "승인 대기" || !p.providerId || !check.doctor.trim() || !check.opinion.trim() || !/^\d{4}-\d{2}-\d{2}$/.test(firstDate) || !/^\d{2}:\d{2}$/.test(firstTime)) return s;
+      if (s.patients.some(o => o.id !== p.id && o.status !== "종료" && o.providerId === p.providerId && o.nextDate === firstDate && o.nextTime === firstTime)) return s;
+      const at = nowIso(), program = programFor(s, p);
+      applied = true;
+      const cautions = check.cautions.map(c => c.trim()).filter(Boolean), contraindications = check.contraindications.map(c => c.trim()).filter(Boolean);
+      const next = patchPatient(s, patientId, {
+        status: "진행 중", doctor: check.doctor, nextDate: firstDate, nextTime: firstTime,
+        precautions: cautions.join(" · ") || p.precautions,
+        doctorCheck: { doctor: check.doctor, opinion: check.opinion.trim(), contraindications, cautions, at },
+        approval: { status: "승인", by: check.doctor, at },
+        ...(program && !p.programId ? { programId: program.id } : {}),
+      });
+      if (!program || s.payments.some(x => x.patientId === patientId && x.status !== "취소")) return next;
+      const kind = program.payment === "이용권" ? "이용권" as const : "회차" as const;
+      return { ...next, payments: [{ id: newId("pay"), patientId, programId: program.id, kind, ...paymentFor(program, kind), status: "결제 대기", createdAt: at, by: check.doctor }, ...next.payments] };
+    });
+    return applied;
+  },
+
+  changeProvider(patientId, provider, reason, by) {
+    let applied = false;
+    write(s => {
+      const p = s.patients.find(x => x.id === patientId), target = allProviders(s).find(e => e.id === provider.id);
+      if (!p || p.status === "종료" || !target || p.providerId === target.id || !reason.trim() || !by.trim()) return s;
+      if (p.status !== "배정 대기" && s.patients.some(o => o.id !== p.id && o.status !== "종료" && o.providerId === target.id && o.nextDate === p.nextDate && o.nextTime === p.nextTime)) return s;
+      const current = programFor(s, p);
+      const program = s.programs.find(x => x.providerId === target.id && x.active && x.method === current?.method) ?? s.programs.find(x => x.providerId === target.id && x.active);
+      const at = nowIso(), id = newId("as");
+      applied = true;
+      return {
+        ...patchPatient(s, patientId, { providerId: target.id, provider: target.name, requestedProviderId: undefined, requestedProviderName: undefined, status: p.status === "배정 대기" ? "승인 대기" : p.status, ...(program ? { programId: program.id } : {}) }),
+        assignments: [{ id, proposalId: id, patientId, providerId: target.id, providerName: target.name, status: "확정", createdAt: at, respondedAt: at, by, adjustmentReason: reason.trim() }, ...s.assignments],
+      };
+    });
+    return applied;
+  },
+
+  saveProgram(program) {
+    let applied = false;
+    write(s => {
+      const pack = program.payment === "이용권";
+      if (!program.title.trim() || !allProviders(s).some(e => e.id === program.providerId) || !(program.minutes > 0) || !(program.price > 0) || pack && (!(Number(program.packSessions) > 0) || !(Number(program.packPrice) > 0)) || program.method === "외부" && !program.placeId) return s;
+      applied = true;
+      const value = { ...program, id: program.id || newId("pg"), title: program.title.trim(), ...(pack ? {} : { packSessions: undefined, packPrice: undefined }), ...(program.method === "외부" ? {} : { placeId: undefined }) };
+      return { ...s, programs: s.programs.some(x => x.id === value.id) ? s.programs.map(x => x.id === value.id ? value : x) : [...s.programs, value] };
+    });
+    return applied;
+  },
+
+  requestPayment(patientId, programId, kind, by) {
+    let id = "";
+    write(s => {
+      const p = s.patients.find(x => x.id === patientId), program = programById(s, programId);
+      if (!p || p.status === "종료" || !program || kind === "이용권" && program.payment !== "이용권" || !by.trim()) return s;
+      if (s.payments.some(x => x.patientId === patientId && x.status === "결제 대기")) return s; // 결제 대기는 한 건만 둡니다.
+      id = newId("pay");
+      return { ...s, payments: [{ id, patientId, programId, kind, ...paymentFor(program, kind), status: "결제 대기", createdAt: nowIso(), by }, ...s.payments] };
+    });
+    return id;
+  },
+
+  markPaid(paymentId, method) {
+    let applied = false;
+    write(s => {
+      const x = s.payments.find(x => x.id === paymentId);
+      if (!x || x.status !== "결제 대기" || !method.trim()) return s;
+      applied = true;
+      return { ...s, payments: s.payments.map(y => y.id === paymentId ? { ...y, status: "결제 완료", paidAt: nowIso(), method: method.trim() } : y) };
+    });
+    return applied;
+  },
 
   reset: () => write(() => normalizeWorkflow(seed)),
   update: write,

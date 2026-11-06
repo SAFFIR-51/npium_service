@@ -58,7 +58,7 @@ export function readState(): { revision: number; state: CareState } {
   return { revision: Number(row.revision), state };
 }
 export function createAccount(input: Account & { password: string }) {
-  if (!/^[a-zA-Z0-9._-]{3,80}$/.test(input.username) || input.password.length < 12 || input.password.length > 128 || !input.name.trim() || !["admin", "hospital", "provider", "patient"].includes(input.role) || input.role === "hospital" && !input.organization.trim() || input.role === "provider" && !readState().state.registeredProviders.some(p => p.id === input.providerId)) throw new Error("계정 항목을 확인해 주세요. 비밀번호는 12자 이상입니다.");
+  if (!/^[a-zA-Z0-9._-]{3,80}$/.test(input.username) || input.password.length < 12 || input.password.length > 128 || !input.name.trim() || !["admin", "hospital", "center", "provider", "patient"].includes(input.role) || (input.role === "hospital" || input.role === "center") && !input.organization.trim() || input.role === "provider" && !readState().state.registeredProviders.some(p => p.id === input.providerId)) throw new Error("계정 항목을 확인해 주세요. 비밀번호는 12자 이상입니다.");
   const salt = randomBytes(16).toString("hex"), hash = scryptSync(input.password, salt, 64).toString("hex");
   db().prepare("INSERT INTO accounts(id,username,name,role,organization,providerId,salt,hash) VALUES(?,?,?,?,?,?,?,?)").run(input.id, input.username, input.name.trim(), input.role, input.organization.trim(), input.providerId, salt, hash);
 }

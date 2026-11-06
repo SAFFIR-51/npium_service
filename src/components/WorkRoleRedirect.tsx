@@ -9,7 +9,7 @@ export function WorkRoleRedirect() {
   const role = useRole();
   const router = useRouter();
   useEffect(() => {
-    if (role === "provider" || role === "hospital" || role === "admin") router.replace(ROLE_INFO[role].home);
+    if (role === "provider" || role === "center" || role === "hospital" || role === "admin") router.replace(ROLE_INFO[role].home);
   }, [role, router]);
   return null;
 }

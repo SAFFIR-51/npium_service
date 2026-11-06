@@ -6,6 +6,7 @@ import { PlaceInfo } from "@/components/PlaceInfo";
 import { SessionReportForm } from "@/components/SessionReportForm";
 import { placeName } from "@/lib/places";
 import { programStage } from "@/lib/program";
+import { flowStep } from "@/lib/center";
 import type { Patient } from "@/lib/repo";
 import { useToday } from "@/lib/use-today";
 import { ExpertSubHeader } from "../ExpertShell";
@@ -43,9 +44,9 @@ export function ScheduleView() {
   for (const r of data.state.records.filter(r => myIds.has(r.patientId))) {
     events.push({ key: r.id, date: r.date, kind: r.confirmed ? "완료" : "작성 중", patient: byId(r.patientId), text: `${r.sessionNo ? `${r.sessionNo}회차` : r.title}${r.attendance ? ` · ${r.attendance}` : ""}${r.durationMin ? ` · ${r.durationMin}분` : ""}${r.place ? ` · ${placeName(r.place)}` : ""}` });
   }
-  for (const p of data.patients.filter(p => p.status !== "종료" && p.status !== "배정 대기")) {
+  for (const p of data.patients.filter(p => p.status === "진행 중")) {
     const done = data.state.records.some(r => r.patientId === p.id && r.date === p.nextDate);
-    if (!done) events.push({ key: `n-${p.id}`, date: p.nextDate, time: p.nextTime, kind: p.nextDate < today ? "보고서 미작성" : "예정", patient: p, text: `${programStage(data.state, p, today)} · ${p.completed + 1}회차${p.nextPlace ? " · 장소 변경" : ""}` });
+    if (!done) events.push({ key: `n-${p.id}`, date: p.nextDate, time: p.nextTime, kind: p.nextDate < today ? "보고서 미작성" : "예정", patient: p, text: `${p.completed + 1}회차 · ${flowStep(data.state, p) === "예약 확정" ? "첫 회차" : "진행 중"}${p.nextPlace ? " · 장소 변경" : ""}` });
     if (p.prescription && p.status === "진행 중") events.push({ key: `e-${p.id}`, date: p.prescription.endDate, kind: "처방 종료", patient: p, text: `${p.doctor?.split(" ")[0] ?? "담당 의사"} 처방 마지막 날 · 연장은 병원에 요청` });
   }
   for (const q of data.state.scheduleRequests.filter(q => q.status === "요청" && myIds.has(q.patientId) && q.date)) {
@@ -100,7 +101,7 @@ export function ScheduleView() {
       {(e.kind === "예정" || e.kind === "보고서 미작성") && <>
         <div className="sg-divider" />
         <PlaceInfo patient={e.patient} changed={!!e.patient.nextPlace} />
-        <div className="sg-actions"><Link href={`/chat?c=care-${e.patient.id}`}>보호자와 채팅</Link><button className={e.kind === "보고서 미작성" || e.date === today ? "primary" : ""} disabled={programStage(data.state, e.patient, today) !== "방문 재활" || e.date > today} onClick={() => setRecord({ patient: e.patient, date: e.date })}>보고서 쓰기</button></div>
+        <div className="sg-actions"><Link className={e.kind === "보고서 미작성" || e.date === today ? "primary" : ""} href={`/expert/patients/${e.patient.id}`}>회차 기록 쓰기</Link></div>
       </>}
     </section>) : <section className="sg-card sg-empty">이 날은 일정이 없어요.</section>}
     <p className="sg-foot">다음 회차 일정은 보고서를 쓸 때 정해요. 바뀐 일정은 보호자 화면에도 바로 보여요.</p>
